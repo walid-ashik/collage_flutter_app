@@ -4,6 +4,7 @@ import 'dart:io';
 import 'package:path_provider/path_provider.dart';
 import 'package:screenshot/screenshot.dart';
 import 'package:image_gallery_saver/image_gallery_saver.dart';
+import 'package:simple_permissions/simple_permissions.dart';
 
 void main() => runApp(MyApp());
 
@@ -32,11 +33,20 @@ class _MyHomePageState extends State<MyHomePage> {
   File _imageFile = null;
   int bottomTabBarIndex = 0;
   ScreenshotController screenshotController = ScreenshotController();
+  Permission permission;
+  bool isPermissionGranted = false;
 
   incrementBottomTabBarIndex(index) {
     setState(() {
       bottomTabBarIndex = index;
     });
+  }
+
+  @override
+  void initState() {
+    super.initState();
+    permission = Permission.WriteExternalStorage;
+    checkPermission();
   }
 
   @override
@@ -59,8 +69,9 @@ class _MyHomePageState extends State<MyHomePage> {
             Expanded(
               child: InkWell(
                 onTap: () {
-                  print("image capturing start...");
-                  takeScreenShot();
+
+                  checkPermissionAndProceedToScreenshot();
+
                 },
                 child: Container(
                   height: 50.0,
@@ -95,7 +106,7 @@ class _MyHomePageState extends State<MyHomePage> {
                 Expanded(
                   child: Container(
                     color: Colors.amberAccent,
-                    child: Center(child: Text('A')),
+                    child: Center(child: Text('1')),
                   ),
                 ),
                 Expanded(
@@ -131,8 +142,12 @@ class _MyHomePageState extends State<MyHomePage> {
     );
   }
 
-  void takeScreenShot() async {
+  checkPermission() async {
+    isPermissionGranted = await SimplePermissions.checkPermission(permission);
+  }
 
+  void takeScreenShot() async {
+    print("image capturing start...");
     final directory = (await getApplicationDocumentsDirectory ()).path; //from path_provide package
     String fileName = DateTime.now().toIso8601String();
     final path = '$directory/$fileName.png';
@@ -146,5 +161,27 @@ class _MyHomePageState extends State<MyHomePage> {
       await ImageGallerySaver.saveImage(_imageFile.readAsBytesSync());
       print('image has been saved');
     });
+  }
+
+  void checkPermissionAndProceedToScreenshot() {
+    if(isPermissionGranted) {
+      print('permission is granted');
+      takeScreenShot();
+    } else {
+      requestPermission();
+    }
+  }
+
+  void requestPermission() async {
+    PermissionStatus result = await SimplePermissions.requestPermission(permission);
+    if(result == PermissionStatus.authorized) {
+      isPermissionGranted = true;
+      checkPermissionAndProceedToScreenshot();
+    } else {
+      checkPermission();
+      checkPermissionAndProceedToScreenshot();
+      //show you need to accept permission dialog
+      print("you need accept permissions");
+    }
   }
 }
